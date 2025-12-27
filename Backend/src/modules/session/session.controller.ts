@@ -4,14 +4,14 @@ import { SessionService } from "./session.service.js";
 
 const sessionService = new SessionService();
 
-export const createSession = (req: Request, res: Response) => {
+export const createSession = async (req: Request, res: Response) => {
   const { username } = req.body;
 
   if (!username) {
     return res.status(400).json({ error: "Username is required" });
   }
 
-  const session = sessionService.createSession(username);
+  const session = await sessionService.createSession(username);
 
   return res.status(201).json(session);
 };
