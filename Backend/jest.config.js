@@ -22,5 +22,7 @@ export default {
   ],
   testTimeout: 10000,
   forceExit: true,
-  detectOpenHandles: true,
+  detectOpenHandles: false,
+  clearMocks: true,
+  setupFiles: ['<rootDir>/tests/set-env.ts'],
 };
