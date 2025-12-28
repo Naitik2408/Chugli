@@ -24,5 +24,4 @@ export default {
   forceExit: true,
   detectOpenHandles: false,
   clearMocks: true,
-  setupFiles: ['<rootDir>/tests/set-env.ts'],
 };
