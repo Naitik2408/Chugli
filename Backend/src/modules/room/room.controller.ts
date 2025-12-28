@@ -38,3 +38,22 @@ export const getNearbyRooms = async (req: Request, res: Response) => {
 
   return res.json(rooms);
 };
+
+export const joinRoom = async (req: Request, res: Response) => {
+  const { roomId } = req.params;
+
+  if (!roomId) {
+    return res.status(400).json({
+      error: "roomId is required"
+    });
+  }
+
+  try {
+    const result = await roomService.joinRoom(roomId);
+    return res.json(result);
+  } catch (error) {
+    return res.status(404).json({
+      error: "Room not found"
+    });
+  }
+};
