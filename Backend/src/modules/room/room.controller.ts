@@ -20,3 +20,21 @@ export const createRoom = async (req: Request, res: Response) => {
 
   return res.status(201).json(room);
 };
+
+export const getNearbyRooms = async (req: Request, res: Response) => {
+  const { lat, lng } = req.query;
+
+  if (!lat || !lng) {
+    return res.status(400).json({
+      error: "lat and lng are required"
+    });
+  }
+
+  const rooms = await roomService.findNearbyRooms(
+    Number(lat),
+    Number(lng),
+    5
+  );
+
+  return res.json(rooms);
+};
