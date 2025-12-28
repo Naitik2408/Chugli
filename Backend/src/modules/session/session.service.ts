@@ -24,4 +24,15 @@ export class SessionService {
 
     return session;
   }
+
+  async getSession(sessionId: string): Promise<SessionData | null> {
+    const raw = await redis.get(`session:${sessionId}`);
+    if (!raw) return null;
+
+    try {
+      return JSON.parse(raw) as SessionData;
+    } catch {
+      return null;
+    }
+  }
 }

@@ -6,11 +6,15 @@ const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 class SocketService {
   private socket: Socket | null = null;
+  private errorCallback: ((error: { message: string }) => void) | null = null;
 
   connect() {
     if (!this.socket) {
       this.socket = io(SOCKET_URL, {
         transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
       });
 
       this.socket.on('connect', () => {
@@ -19,6 +23,13 @@ class SocketService {
 
       this.socket.on('disconnect', () => {
         console.log('❌ Socket disconnected');
+      });
+
+      this.socket.on('error', (error) => {
+        console.error('Socket error:', error);
+        if (this.errorCallback) {
+          this.errorCallback(error);
+        }
       });
     }
     return this.socket;
@@ -32,27 +43,38 @@ class SocketService {
   }
 
   joinRoom(roomId: string, username: string) {
-    this.socket?.emit('room:join', { roomId, username });
+    this.socket?.emit('join_room', { roomId, username });
   }
 
   leaveRoom(roomId: string) {
     this.socket?.emit('room:leave', { roomId });
   }
 
-  sendMessage(roomId: string, username: string, text: string) {
-    this.socket?.emit('chat:message', { roomId, username, text });
+  sendMessage(roomId: string, _username: string, text: string) {
+    // backend expects { roomId, message } - username comes from socket.data on backend
+    this.socket?.emit('send_message', { roomId, message: text });
   }
 
-  onRoomJoined(callback: (data: { roomId: string; username: string }) => void) {
-    this.socket?.on('room:joined', callback);
+  onRoomJoined(callback: (data: { roomId: string; username?: string }) => void) {
+    this.socket?.on('joined_room', callback);
   }
 
-  onRoomLeft(callback: (data: { roomId: string; username: string }) => void) {
+  onRoomLeft(callback: (data: { roomId: string; username?: string }) => void) {
     this.socket?.on('room:left', callback);
   }
 
   onMessage(callback: (message: Message) => void) {
-    this.socket?.on('chat:message', callback);
+    // backend emits payload: { message, timestamp, senderId, username, roomId }
+    this.socket?.on('receive_message', (payload: any) => {
+      const mapped: Message = {
+        messageId: `${payload.senderId || 's'}_${payload.timestamp}`,
+        roomId: payload.roomId || '',
+        username: payload.username || payload.senderId || 'unknown',
+        text: payload.message || payload.text || '',
+        timestamp: payload.timestamp || Date.now(),
+      };
+      callback(mapped);
+    });
   }
 
   offRoomJoined() {
@@ -64,7 +86,15 @@ class SocketService {
   }
 
   offMessage() {
-    this.socket?.off('chat:message');
+    this.socket?.off('receive_message');
+  }
+
+  onError(callback: (error: { message: string }) => void) {
+    this.errorCallback = callback;
+  }
+
+  offError() {
+    this.errorCallback = null;
   }
 }
 
