@@ -18,6 +18,16 @@ export const apiService = {
     return data;
   },
 
+  // Validate existing session
+  validateSession: async (sessionId: string): Promise<User | null> => {
+    try {
+      const { data } = await api.get(`/session/${sessionId}`);
+      return data;
+    } catch {
+      return null;
+    }
+  },
+
   // Get nearby rooms
   getNearbyRooms: async (lat: number, lng: number): Promise<Room[]> => {
     const { data } = await api.get('/rooms/nearby', {

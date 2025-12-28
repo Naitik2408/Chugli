@@ -1,45 +1,45 @@
 // src/components/ChatArea.tsx
 import { useState, useEffect, useRef } from 'react';
 import type { Room, Message } from '../types';
+import { socketService } from '../services/socket';
 
 interface ChatAreaProps {
   room: Room | null;
   username: string;
+  onBack?: () => void;
 }
 
-// Mock messages for UI testing
-const generateMockMessages = (roomId: string, currentUser: string): Message[] => {
-  const otherUsers = ['Alice', 'Bob', 'Charlie', 'Dave'];
-  const sampleTexts = [
-    'Hey everyone! 👋',
-    'Anyone up for coffee?',
-    'This is a great spot!',
-    'See you all tomorrow',
-    'Thanks for the chat!',
-  ];
-
-  return Array.from({ length: 5 }, (_, i) => ({
-    messageId: `msg-${roomId}-${i}`,
-    roomId,
-    username: i % 2 === 0 ? currentUser : otherUsers[i % otherUsers.length],
-    text: sampleTexts[i],
-    timestamp: Date.now() - (5 - i) * 60000,
-  }));
-};
-
-export function ChatArea({ room, username }: ChatAreaProps) {
+export function ChatArea({ room, username, onBack }: ChatAreaProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
+  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!room) return;
 
-    // Load mock messages for the room
-    const mockMessages = generateMockMessages(room.roomId, username);
-    setMessages(mockMessages);
+    // Join the room via Socket.IO
+    socketService.joinRoom(room.roomId, username);
+
+    // Listen for new messages
+    socketService.onMessage((message) => {
+      setMessages((prev) => [...prev, message]);
+    });
+
+    // Handle errors (rate limit, etc.)
+    socketService.onError((error: any) => {
+      if (error.code === 'RATE_LIMIT') {
+        alert('Please wait a moment before sending another message.');
+      } else if (error.code === 'MESSAGE_TOO_LONG') {
+        alert('Message too long (max 300 characters).');
+      }
+      setSending(false);
+    });
 
     return () => {
+      socketService.leaveRoom(room.roomId);
+      socketService.offMessage();
+      socketService.offError();
       setMessages([]);
     };
   }, [room, username]);
@@ -50,19 +50,15 @@ export function ChatArea({ room, username }: ChatAreaProps) {
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !room) return;
+    if (!inputText.trim() || !room || sending) return;
 
-    // Add message to local state (mock)
-    const newMessage: Message = {
-      messageId: `msg-${Date.now()}`,
-      roomId: room.roomId,
-      username,
-      text: inputText,
-      timestamp: Date.now(),
-    };
-
-    setMessages((prev) => [...prev, newMessage]);
+    setSending(true);
+    // Send message via Socket.IO
+    socketService.sendMessage(room.roomId, username, inputText);
     setInputText('');
+    
+    // Reset sending state after 1 second (matches rate limit)
+    setTimeout(() => setSending(false), 1000);
   };
 
   if (!room) {
@@ -76,27 +72,46 @@ export function ChatArea({ room, username }: ChatAreaProps) {
     );
   }
 
+  const charCount = inputText.length;
+  const maxChars = 300;
+
   return (
-    <div className="flex-1 flex flex-col bg-[#0a0a0a]">
-      <div className="p-5 bg-[#1a1a1a] border-b border-gray-800">
-        <h2 className="text-xl font-semibold text-white mb-1">{room.name}</h2>
-        <div className="text-sm text-gray-400">
-          📍 {room.lat.toFixed(4)}, {room.lng.toFixed(4)}
+    <div className="flex-1 flex flex-col bg-[#0a0a0a] w-full">
+      <div className="p-4 sm:p-5 bg-[#1a1a1a] border-b border-gray-800">
+        <div className="flex items-center gap-3">
+          {/* Back button - visible on mobile only */}
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="lg:hidden p-2 rounded-lg hover:bg-[#2a2a2a] transition-colors"
+              aria-label="Back to rooms"
+            >
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg sm:text-xl font-semibold text-white mb-1 truncate">{room.name}</h2>
+            <div className="text-xs sm:text-sm text-gray-400 truncate">
+              📍 {room.lat.toFixed(4)}, {room.lng.toFixed(4)}
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6" style={{
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6" style={{
         backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23333333' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
       }}>
         {messages.length === 0 ? (
-          <div className="text-center text-gray-500 p-8">
+          <div className="text-center text-gray-400 p-4 sm:p-8">
             No messages yet. Start the conversation!
           </div>
         ) : (
           messages.map((message) => (
             <div
               key={message.messageId}
-              className={`mb-4 flex flex-col ${
+              className={`mb-3 sm:mb-4 flex flex-col ${
                 message.username === username ? 'items-end' : 'items-start'
               }`}
             >
@@ -106,9 +121,9 @@ export function ChatArea({ room, username }: ChatAreaProps) {
                 <span className="font-semibold">{message.username}</span>
                 <span>{new Date(message.timestamp).toLocaleTimeString()}</span>
               </div>
-              <div className={`max-w-[60%] px-4 py-3 rounded-2xl shadow-md break-words ${
+              <div className={`max-w-[85%] sm:max-w-[75%] md:max-w-[60%] px-3 sm:px-4 py-2 sm:py-3 rounded-2xl shadow-md break-words ${
                 message.username === username
-                  ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white'
+                  ? 'bg-linear-to-br from-orange-500 to-orange-600 text-white'
                   : 'bg-[#2a2a2a] text-white border border-gray-700'
               }`}>
                 {message.text}
@@ -119,20 +134,28 @@ export function ChatArea({ room, username }: ChatAreaProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      <form className="flex gap-3 p-4 bg-[#1a1a1a] border-t border-gray-800" onSubmit={handleSend}>
-        <input
-          type="text"
-          placeholder="Type a message..."
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          className="flex-1 px-5 py-3 bg-[#2a2a2a] border border-gray-700 rounded-xl text-base text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 transition-colors"
-        />
+      <form className="flex gap-2 sm:gap-3 p-3 sm:p-4 bg-[#1a1a1a] border-t border-gray-800" onSubmit={handleSend}>
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            placeholder="Type a message..."
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            maxLength={maxChars}
+            className="w-full px-3 sm:px-5 py-2 sm:py-3 bg-[#2a2a2a] border border-gray-700 rounded-xl text-sm sm:text-base text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 transition-colors pr-12 sm:pr-16"
+          />
+          <div className={`absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-xs ${
+            charCount > maxChars - 50 ? 'text-orange-400' : 'text-gray-500'
+          }`}>
+            {charCount}/{maxChars}
+          </div>
+        </div>
         <button
           type="submit"
-          disabled={!inputText.trim()}
-          className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-medium hover:from-orange-600 hover:to-orange-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={!inputText.trim() || sending || charCount > maxChars}
+          className="px-4 sm:px-8 py-2 sm:py-3 bg-linear-to-r from-orange-500 to-orange-600 text-white rounded-xl text-sm sm:text-base font-medium hover:from-orange-600 hover:to-orange-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Send
+          {sending ? 'Sending...' : 'Send'}
         </button>
       </form>
     </div>
