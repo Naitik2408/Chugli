@@ -59,4 +59,17 @@ export class RoomService {
 
     return rooms;
   }
+
+  async joinRoom(roomId: string): Promise<{ roomId: string; status: string }> {
+    const data = await redis.get(`room:${roomId}`);
+
+    if (!data) {
+      throw new Error("Room not found");
+    }
+
+    return {
+      roomId,
+      status: "joined"
+    };
+  }
 }
