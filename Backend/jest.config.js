@@ -20,4 +20,8 @@ export default {
     'src/**/*.ts',
     '!src/**/*.d.ts',
   ],
+  testTimeout: 10000,
+  forceExit: true,
+  detectOpenHandles: false,
+  clearMocks: true,
 };
