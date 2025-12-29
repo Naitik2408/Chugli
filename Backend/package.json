@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "nodemon --watch src --exec node --loader ts-node/esm src/server.ts",
     "build": "tsc",
+    "postinstall": "npm run build",
     "start": "node dist/server.js",
     "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
     "test:watch": "NODE_OPTIONS='--experimental-vm-modules' jest --watch",
