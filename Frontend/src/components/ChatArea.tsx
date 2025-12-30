@@ -2,14 +2,17 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Room, Message } from '../types';
 import { socketService } from '../services/socket';
+import Spinner from './Spinner';
 
 interface ChatAreaProps {
   room: Room | null;
   username: string;
   onBack?: () => void;
+  onLogout?: () => void;
+  logoutLoading?: boolean;
 }
 
-export function ChatArea({ room, username, onBack }: ChatAreaProps) {
+export function ChatArea({ room, username, onBack, onLogout, logoutLoading = false }: ChatAreaProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
@@ -97,6 +100,23 @@ export function ChatArea({ room, username, onBack }: ChatAreaProps) {
               📍 {room.lat.toFixed(4)}, {room.lng.toFixed(4)}
             </div>
           </div>
+          {/* Logout button */}
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="ml-3 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm hidden sm:inline-flex cursor-pointer"
+              aria-disabled={logoutLoading}
+            >
+              {logoutLoading ? (
+                <span className="flex items-center gap-2">
+                  <Spinner size={14} />
+                  <span>Logging out</span>
+                </span>
+              ) : (
+                'Logout'
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -121,7 +141,7 @@ export function ChatArea({ room, username, onBack }: ChatAreaProps) {
                 <span className="font-semibold">{message.username}</span>
                 <span>{new Date(message.timestamp).toLocaleTimeString()}</span>
               </div>
-              <div className={`max-w-[85%] sm:max-w-[75%] md:max-w-[60%] px-3 sm:px-4 py-2 sm:py-3 rounded-2xl shadow-md break-words ${
+              <div className={`max-w-[85%] sm:max-w-[75%] md:max-w-[60%] px-3 sm:px-4 py-2 sm:py-3 rounded-2xl shadow-md wrap-break-word ${
                 message.username === username
                   ? 'bg-linear-to-br from-orange-500 to-orange-600 text-white'
                   : 'bg-[#2a2a2a] text-white border border-gray-700'
@@ -153,9 +173,16 @@ export function ChatArea({ room, username, onBack }: ChatAreaProps) {
         <button
           type="submit"
           disabled={!inputText.trim() || sending || charCount > maxChars}
-          className="px-4 sm:px-8 py-2 sm:py-3 bg-linear-to-r from-orange-500 to-orange-600 text-white rounded-xl text-sm sm:text-base font-medium hover:from-orange-600 hover:to-orange-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 sm:px-8 py-2 sm:py-3 bg-linear-to-r from-orange-500 to-orange-600 text-white rounded-xl text-sm sm:text-base font-medium hover:from-orange-600 hover:to-orange-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
-          {sending ? 'Sending...' : 'Send'}
+          {sending ? (
+            <span className="flex items-center gap-2">
+              <Spinner size={14} />
+              <span>Sending...</span>
+            </span>
+          ) : (
+            'Send'
+          )}
         </button>
       </form>
     </div>

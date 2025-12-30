@@ -47,4 +47,9 @@ export const apiService = {
     const { data } = await api.post(`/rooms/${roomId}/join`);
     return data;
   },
+
+  // Delete session (logout)
+  deleteSession: async (sessionId: string): Promise<void> => {
+    await api.delete(`/session/${sessionId}`);
+  },
 };

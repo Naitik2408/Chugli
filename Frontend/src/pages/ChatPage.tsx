@@ -1,5 +1,6 @@
 // src/pages/ChatPage.tsx
 import { useState, useEffect } from 'react';
+import Spinner from '../components/Spinner';
 import { RoomList } from '../components/RoomList';
 import { ChatArea } from '../components/ChatArea';
 import type { Room } from '../types';
@@ -18,6 +19,8 @@ export function ChatPage() {
   const [locationError, setLocationError] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [showMobileChat, setShowMobileChat] = useState(false);
+  const [setupLoading, setSetupLoading] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
 
   // On mount: restore session AND request location in parallel for faster UX
   useEffect(() => {
@@ -45,10 +48,12 @@ export function ChatPage() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
-            setUserLocation({
+            const coords = {
               lat: position.coords.latitude,
               lng: position.coords.longitude,
-            });
+            };
+            console.log(`📍 Your location detected: ${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`);
+            setUserLocation(coords);
             setLocationError(false);
           },
           (error) => {
@@ -133,11 +138,12 @@ export function ChatPage() {
     }
 
     try {
+      setSetupLoading(true);
       const session = await apiService.createSession(usernameInput);
-      
+
       // Save to localStorage
       storage.saveSession(session.sessionId, usernameInput);
-      
+
       setUsername(usernameInput);
       setIsSetup(true);
       setSessionError(null);
@@ -145,6 +151,8 @@ export function ChatPage() {
     } catch (error) {
       console.error('Failed to create session:', error);
       setSessionError('Failed to create session. Please try again.');
+    } finally {
+      setSetupLoading(false);
     }
   };
 
@@ -153,9 +161,10 @@ export function ChatPage() {
 
     setLoadingRooms(true);
     try {
+      console.log(`📡 Searching for rooms near: ${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)} (within 5km)`);
       const nearbyRooms = await apiService.getNearbyRooms(userLocation.lat, userLocation.lng);
       setRooms(nearbyRooms);
-      console.log(`📍 Loaded ${nearbyRooms.length} nearby rooms`);
+      console.log(`📍 Loaded ${nearbyRooms.length} nearby rooms`, nearbyRooms);
     } catch (error) {
       console.error('Failed to load nearby rooms:', error);
     } finally {
@@ -165,6 +174,7 @@ export function ChatPage() {
 
   const handleCreateRoom = async (name: string, lat: number, lng: number) => {
     try {
+      console.log(`🏠 Creating room "${name}" at coordinates: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
       await apiService.createRoom(name, lat, lng);
       // Room list will be refreshed via onRefreshRooms
     } catch (error) {
@@ -188,6 +198,30 @@ export function ChatPage() {
 
   const handleBackToRooms = () => {
     setShowMobileChat(false);
+  };
+
+  const handleLogout = async () => {
+    const s = storage.getSession();
+    try {
+      setLogoutLoading(true);
+      if (s) {
+        try {
+          await apiService.deleteSession(s.sessionId);
+        } catch (err) {
+          console.warn('Failed to delete session on server:', err);
+        }
+      }
+
+      storage.clearSession();
+      setUsername('');
+      setIsSetup(false);
+      setSelectedRoom(null);
+      socketService.disconnect();
+      setShowMobileChat(false);
+      setUsernameInput('');
+    } finally {
+      setLogoutLoading(false);
+    }
   };
 
   if (!isSetup) {
@@ -232,10 +266,17 @@ export function ChatPage() {
                 
                 <button
                   type="submit"
-                  disabled={!usernameInput.trim() || locationError}
-                  className="w-full px-6 py-4 text-base font-medium text-black bg-white rounded-xl hover:bg-gray-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!usernameInput.trim() || locationError || setupLoading}
+                  className="w-full px-6 py-4 text-base font-medium text-black bg-white rounded-xl hover:bg-gray-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  Start Chatting
+                  {setupLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Spinner size={18} />
+                      <span>Starting...</span>
+                    </span>
+                  ) : (
+                    'Start Chatting'
+                  )}
                 </button>
               </form>
             </div>
@@ -274,10 +315,10 @@ export function ChatPage() {
 
   return (
     <div className="h-screen bg-[#0a0a0a]">
-      <div className="flex h-full max-w-full lg:max-w-[1600px] mx-auto">
+      <div className="flex h-full max-w-full lg:max-w-400 mx-auto">
         {/* Desktop: Show both side by side */}
         {/* Mobile: Show RoomList OR ChatArea based on showMobileChat */}
-        <div className={`w-full lg:w-80 flex-shrink-0 ${
+        <div className={`w-full lg:w-80 shrink-0 ${
           showMobileChat ? 'hidden lg:flex' : 'flex'
         }`}>
           <RoomList
@@ -297,6 +338,8 @@ export function ChatPage() {
             room={selectedRoom} 
             username={username}
             onBack={handleBackToRooms}
+            onLogout={handleLogout}
+            logoutLoading={logoutLoading}
           />
         </div>
       </div>
