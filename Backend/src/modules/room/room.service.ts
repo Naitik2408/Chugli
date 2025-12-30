@@ -27,6 +27,7 @@ export class RoomService {
     // add room id to active rooms set
     await redis.sadd("rooms:active", roomId);
 
+    console.log(`✅ Room created: "${name}" (${roomId}) at (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
     return room;
   }
 
@@ -38,10 +39,15 @@ export class RoomService {
     const roomIds = await redis.smembers("rooms:active");
 
     const rooms: Room[] = [];
+    const expiredRoomIds: string[] = [];
 
     for (const roomId of roomIds) {
       const data = await redis.get(`room:${roomId}`);
-      if (!data) continue;
+      if (!data) {
+        // Room expired but still in active set - mark for cleanup
+        expiredRoomIds.push(roomId);
+        continue;
+      }
 
       const room: Room = JSON.parse(data);
 
@@ -57,6 +63,13 @@ export class RoomService {
       }
     }
 
+    // Clean up expired room IDs from the active set
+    if (expiredRoomIds.length > 0) {
+      await redis.srem("rooms:active", ...expiredRoomIds);
+      console.log(`🧹 Cleaned up ${expiredRoomIds.length} expired room(s)`);
+    }
+
+    console.log(`📍 Found ${rooms.length} nearby rooms within ${radiusKm}km of (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
     return rooms;
   }
 
