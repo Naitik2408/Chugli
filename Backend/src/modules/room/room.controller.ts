@@ -33,7 +33,7 @@ export const getNearbyRooms = async (req: Request, res: Response) => {
   const rooms = await roomService.findNearbyRooms(
     Number(lat),
     Number(lng),
-    5
+    100
   );
 
   return res.json(rooms);
