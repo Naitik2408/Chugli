@@ -35,4 +35,9 @@ export class SessionService {
       return null;
     }
   }
+
+  async deleteSession(sessionId: string): Promise<boolean> {
+    const res = await redis.del(`session:${sessionId}`);
+    return res > 0;
+  }
 }
