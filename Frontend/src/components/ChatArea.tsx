@@ -121,7 +121,7 @@ export function ChatArea({ room, username, onBack }: ChatAreaProps) {
                 <span className="font-semibold">{message.username}</span>
                 <span>{new Date(message.timestamp).toLocaleTimeString()}</span>
               </div>
-              <div className={`max-w-[85%] sm:max-w-[75%] md:max-w-[60%] px-3 sm:px-4 py-2 sm:py-3 rounded-2xl shadow-md break-words ${
+              <div className={`max-w-[85%] sm:max-w-[75%] md:max-w-[60%] px-3 sm:px-4 py-2 sm:py-3 rounded-2xl shadow-md wrap-break-word ${
                 message.username === username
                   ? 'bg-linear-to-br from-orange-500 to-orange-600 text-white'
                   : 'bg-[#2a2a2a] text-white border border-gray-700'

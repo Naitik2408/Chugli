@@ -274,10 +274,10 @@ export function ChatPage() {
 
   return (
     <div className="h-screen bg-[#0a0a0a]">
-      <div className="flex h-full max-w-full lg:max-w-[1600px] mx-auto">
+      <div className="flex h-full max-w-full lg:max-w-400 mx-auto">
         {/* Desktop: Show both side by side */}
         {/* Mobile: Show RoomList OR ChatArea based on showMobileChat */}
-        <div className={`w-full lg:w-80 flex-shrink-0 ${
+        <div className={`w-full lg:w-80 shrink-0 ${
           showMobileChat ? 'hidden lg:flex' : 'flex'
         }`}>
           <RoomList
