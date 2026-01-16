@@ -47,7 +47,7 @@ class SocketService {
   }
 
   leaveRoom(roomId: string) {
-    this.socket?.emit('room:leave', { roomId });
+    this.socket?.emit('leave_room', { roomId });
   }
 
   sendMessage(roomId: string, _username: string, text: string) {
@@ -55,7 +55,7 @@ class SocketService {
     this.socket?.emit('send_message', { roomId, message: text });
   }
 
-  onRoomJoined(callback: (data: { roomId: string; username?: string }) => void) {
+  onRoomJoined(callback: (data: { roomId: string; username?: string; messages?: any[] }) => void) {
     this.socket?.on('joined_room', callback);
   }
 
@@ -78,7 +78,7 @@ class SocketService {
   }
 
   offRoomJoined() {
-    this.socket?.off('room:joined');
+    this.socket?.off('joined_room');
   }
 
   offRoomLeft() {
