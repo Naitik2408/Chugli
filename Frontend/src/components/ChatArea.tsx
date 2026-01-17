@@ -24,6 +24,22 @@ export function ChatArea({ room, username, onBack, onLogout, logoutLoading = fal
     // Join the room via Socket.IO
     socketService.joinRoom(room.roomId, username);
 
+    // Listen for room joined event with message history
+    socketService.onRoomJoined((data) => {
+      if (data.messages && data.messages.length > 0) {
+        // Map backend message format to frontend Message type
+        const history = data.messages.map((msg: any) => ({
+          messageId: `${msg.senderId}_${msg.timestamp}`,
+          roomId: msg.roomId,
+          username: msg.username || 'unknown',
+          text: msg.message,
+          timestamp: msg.timestamp
+        }));
+        setMessages(history);
+        console.log(`📜 Loaded ${history.length} message(s) from history`);
+      }
+    });
+
     // Listen for new messages
     socketService.onMessage((message) => {
       setMessages((prev) => [...prev, message]);
@@ -41,6 +57,7 @@ export function ChatArea({ room, username, onBack, onLogout, logoutLoading = fal
 
     return () => {
       socketService.leaveRoom(room.roomId);
+      socketService.offRoomJoined();
       socketService.offMessage();
       socketService.offError();
       setMessages([]);

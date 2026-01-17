@@ -1,6 +1,7 @@
 // src/pages/ChatPage.tsx
 import { useState, useEffect } from 'react';
 import Spinner from '../components/Spinner';
+import RenderSleepNotice from '../components/RenderSleepNotice';
 import { RoomList } from '../components/RoomList';
 import { ChatArea } from '../components/ChatArea';
 import type { Room } from '../types';
@@ -21,6 +22,7 @@ export function ChatPage() {
   const [showMobileChat, setShowMobileChat] = useState(false);
   const [setupLoading, setSetupLoading] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
+  const [showRenderSleep, setShowRenderSleep] = useState(false);
 
   // On mount: restore session AND request location in parallel for faster UX
   useEffect(() => {
@@ -118,6 +120,10 @@ export function ChatPage() {
           if (storedRoom) {
             storage.clearRoom();
           }
+          // Check if it's a connection error
+          if (err.message?.includes('fetch') || err.message?.includes('Network')) {
+            setShowRenderSleep(true);
+          }
         });
 
       return () => {
@@ -147,10 +153,17 @@ export function ChatPage() {
       setUsername(usernameInput);
       setIsSetup(true);
       setSessionError(null);
+      setShowRenderSleep(false);
       console.log('✅ Session created:', session.sessionId);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create session:', error);
-      setSessionError('Failed to create session. Please try again.');
+      
+      // Check if it's a connection error (Render sleeping)
+      if (error.message?.includes('fetch') || error.message?.includes('Network') || error.code === 'ERR_NETWORK') {
+        setShowRenderSleep(true);
+      } else {
+        setSessionError('Failed to create session. Please try again.');
+      }
     } finally {
       setSetupLoading(false);
     }
@@ -223,6 +236,18 @@ export function ChatPage() {
       setLogoutLoading(false);
     }
   };
+
+  // Show Render sleep notice if backend is waking up
+  if (showRenderSleep) {
+    return <RenderSleepNotice onRetry={() => {
+      setShowRenderSleep(false);
+      setSessionError(null);
+      // Retry by triggering setup again if we're on the setup page
+      if (!isSetup && usernameInput.trim()) {
+        handleSetup({ preventDefault: () => {} } as React.FormEvent);
+      }
+    }} />;
+  }
 
   if (!isSetup) {
     return (
