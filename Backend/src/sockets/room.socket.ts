@@ -27,12 +27,32 @@ export function registerRoomSocket(io: Server, socket: Socket) {
 
     socket.join(roomId);
 
+    // Load message history from Redis (last 50 messages)
+    const messageKeys = await redis.lrange(`room:${roomId}:messages`, 0, 49);
+    const messages = [];
+    for (const key of messageKeys) {
+      try {
+        const msg = JSON.parse(key);
+        messages.push(msg);
+      } catch {
+        // skip invalid messages
+      }
+    }
+
     socket.emit("joined_room", {
       roomId,
       status: "joined",
-      username: username || null
+      username: username || null,
+      messages: messages.reverse() // reverse so oldest first
     });
 
-    console.log(`👤 Socket ${socket.id} joined room ${roomId}`);
+    console.log(`👤 Socket ${socket.id} joined room ${roomId} (loaded ${messages.length} messages)`);
+  });
+
+  socket.on("leave_room", ({ roomId }) => {
+    if (roomId) {
+      socket.leave(roomId);
+      console.log(`👋 Socket ${socket.id} left room ${roomId}`);
+    }
   });
 }

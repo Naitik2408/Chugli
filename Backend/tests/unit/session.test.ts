@@ -1,4 +1,5 @@
 // tests/unit/session.test.ts
+import { describe, expect, it } from "@jest/globals";
 import { SessionService } from "../../src/modules/session/session.service.js";
 
 describe("Session Service", () => {
